@@ -34,73 +34,47 @@ const record = await table.selectRecordAsync(recordId, { fields: [inputField] })
 if (!record) {
   console.log('Record not found, skipping.');
 } else {
-  let media = record.getCellValue(inputField);
-  if (!media || media.length === 0) {
-    console.log('No attachments, skipping.');
-  } else {
-    const results = await Promise.all(
-      media.map(async (attachment) => {
-        try {
-          const res = await fetch(input.secret('API_URL').trim(), {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'x-api-key': input.secret('API_KEY').trim(),
-            },
-            body: JSON.stringify({
-              sourceUrl: attachment.url,
-              filename: attachment.filename,
-              contentType: attachment.type,
-              destinationPrefix: `images/${table.name}`,
-            }),
-          });
+  let media = record.getCellValue(inputField) ?? [];
+  const res = await fetch(input.secret('API_URL').trim(), {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': input.secret('API_KEY').trim(),
+    },
+    body: JSON.stringify({
+      prefix: `images/${table.name}/${recordId}`,
+      attachments: media.map(({ id, url, filename, type }) => ({
+        id: id, 
+        sourceUrl: url, 
+        filename: filename, 
+        contentType: type
+      }))
+    }),
+  });
 
-          if (!res.ok) {
-            const errorText = await res.text();
-            throw new Error(`Upload failed (${res.status}): ${errorText}`);
-          }
+  if (!res.ok) {
+    const errorText = await res.text();
+    throw new Error(`Upload failed (${res.status}): ${errorText}`);
+  }
 
-          const { data } = await res.json();
+  const { data } = await res.json();
 
-          return {
-            attachmentId: attachment.id,
-            filename: attachment.filename,
-            s3Url: data.url,
-            success: true,
-          };
-        } catch (err) {
-          return {
-            attachmentId: attachment.id,
-            filename: attachment.filename,
-            error: err instanceof Error ? err.message : String(err),
-            success: false,
-          };
-        }
-      })
-    );
-
-    // Separate successes from failures
-    const successes = results.filter(r => r.success);
-    const failures = results.filter(r => !r.success);
-
-    if (failures.length > 0) {
-      console.log(failures)
-      console.log(`${failures.length} of ${results.length} uploads failed`);
-    }
-
-    if (successes.length > 0) {
-      console.log('Uploads successful')
-      const mappedUrls = successes.map((media) => {
-        const url = String(media.s3Url)
-        console.log(`Received ${url}`)
-        return url
-      }).join(',');
-      if (mappedUrls && mappedUrls.length > 0) {
-        await table.updateRecordAsync(recordId, {
-          [outputField]: singleUrl ? mappedUrls.split(',')[0] : mappedUrls
-        });
-      }
-      console.log(`Saved ${singleUrl ? "URL": "URLs" } back to "${outputField}"`);
+  for (const [key, value] of Object.entries(data)) {
+    if (Array.isArray(value) && value.length > 0) {
+      console.log(`${key}: ${value.length} item(s)`, value);
     }
   }
+
+  if (data.failed?.length > 0) {
+    throw new Error(
+      `${data.failed.length} of ${media.length} upload(s) failed. ` +
+      `First failure: ${data.failed[0].error ?? 'unknown error'}`
+    );
+  }
+
+  await table.updateRecordAsync(recordId, {
+    [outputField]: singleUrl ? (data.urls[0] ?? "") : data.urls.join(",")
+  });
+
+  console.log(`Saved ${singleUrl ? "URL" : "URLs"} back to "${outputField}"`);
 }
