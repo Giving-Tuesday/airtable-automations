@@ -20,9 +20,9 @@ Airtable scripting environment. Available globals:
 
 ## Conventions
 
-- Table name: `GTREx:DB`
+- Default table: `GTREx:DB`. `map-coords.js` hardcodes it; `image-upload.js` takes `tableId` as a runtime input.
 - Coordinates stored as `{lng},{lat}` (longitude first)
-- Media URLs stored as comma-separated string
+- Media URLs joined by a configurable `separator` in `image-upload.js` (default `|`, not comma)
 - Scripts are self-contained — no shared modules
 
 ## Secrets
@@ -30,3 +30,10 @@ Airtable scripting environment. Available globals:
 - `API_URL` — upload endpoint (image-upload.js)
 - `API_KEY` — upload auth key (image-upload.js)
 - `GOOGLE_MAPS_API_KEY` — geocoding key (map-coords.js)
+
+## Gotchas
+
+- `image-upload.js` posts a single batch request to `API_URL` containing all attachments — not one request per file.
+- `image-upload.js` throws if any item in the batch fails; partial successes still error out.
+- `outputField` accepts dotted names like `custom_fields.media` — that's a literal Airtable field name, not a nested path.
+- `map-coords.js` stores coordinates as `{lng},{lat}` (longitude first) — non-standard order; do not swap.

@@ -18,9 +18,21 @@
 const inputField = "media";
 // - Enter in plain text the exact name of the field where you want the S3 image URLs saved
 const outputField = "custom_fields.media";
-// - Enter true / false, choose true if you only want the URL of the latest image saved back to the output field
-const singleUrl = true;
 
+// ========================================
+// Configuration - Other
+// ========================================
+// - Enter true / false, choose true if you only want the URL of the latest image saved back to the output field
+const singleUrl = false;
+// - Adjust the default separator as required
+const separator = '|'
+// - To provide a custom size uncomment (remove the "//") and complete the values in pixels DEFAULT: 1000px MAX: 4000px
+// - The values provided are maximum values, a smaller image will not be scaled up, an image will not be cropped
+// - but shrunk down to fit inside of the values provided
+const imageSize = {
+  // width: 800,
+  // height: 800
+}
 
 
 const inputConfig = input.config();
@@ -44,10 +56,7 @@ if (!record) {
     body: JSON.stringify({
       prefix: `images/${table.name}/${recordId}`,
       attachments: media.map(({ id, url, filename, type }) => ({
-        id: id, 
-        sourceUrl: url, 
-        filename: filename, 
-        contentType: type
+        id: id, sourceUrl: url, filename: filename, contentType: type, ...imageSize
       }))
     }),
   });
@@ -72,9 +81,11 @@ if (!record) {
     );
   }
 
-  await table.updateRecordAsync(recordId, {
-    [outputField]: singleUrl ? (data.urls[0] ?? "") : data.urls.join(",")
-  });
+  if (data.urls.length) {
+    await table.updateRecordAsync(recordId, {
+      [outputField]: singleUrl ? (data.urls[0] ?? "") : data.urls.join(separator)
+    });
 
-  console.log(`Saved ${singleUrl ? "URL" : "URLs"} back to "${outputField}"`);
+    console.log(`Saved ${singleUrl ? "URL" : "URLs"} back to "${outputField}"`);
+  }
 }

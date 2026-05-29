@@ -8,14 +8,14 @@ Airtable automation scripts for the **GTREx:DB** table. These run inside Airtabl
 
 Transfers media attachments from an Airtable record to cloud storage via an external upload API, then writes the resulting URLs back to the record.
 
-**Trigger:** Record updated (media field)
+**Trigger:** Any trigger that yields a record ID and table ID (e.g. "When record updated").
 
 **Input variables (configured in Airtable UI):**
 
 | Variable   | Source                    |
 |------------|---------------------------|
 | `recordId` | Record ID from trigger    |
-| `objectId` | Object ID from trigger    |
+| `tableId`  | Table ID from trigger     |
 
 **Secrets:**
 
@@ -26,8 +26,18 @@ Transfers media attachments from an Airtable record to cloud storage via an exte
 
 **Fields used:**
 
-- `media` (attachment) — source attachments
-- `custom_fields.media` (text) — comma-separated destination URLs
+- `media` (attachment) — source attachments (field name configurable via `inputField`)
+- `custom_fields.media` (text) — destination URLs joined by `separator` (default `|`)
+
+**In-script configuration constants:**
+
+| Constant      | Default              | Purpose                                                    |
+|---------------|----------------------|------------------------------------------------------------|
+| `inputField`  | `"media"`            | Attachment field to read from                              |
+| `outputField` | `"custom_fields.media"` | Text field to write URLs to                             |
+| `singleUrl`   | `false`              | If `true`, write only the latest URL instead of the list   |
+| `separator`   | `"\|"`               | Joins multiple URLs in the output field                    |
+| `imageSize`   | `{}`                 | Optional `{ width, height }` max dimensions for resizing   |
 
 ### map-coords.js
 
@@ -71,3 +81,8 @@ Geocodes an address using the Google Maps Geocoding API and writes the formatted
 | `Address`            | Text       | map-coords.js    |
 | `geoString`          | Text       | map-coords.js    |
 | `Coordinates`        | Text       | map-coords.js    |
+
+## Notes
+
+- `image-upload.js` takes `tableId` as an input variable, so it can be wired up against any table — not just `GTREx:DB`.
+- `map-coords.js` hardcodes `base.getTable('GTREx:DB')`; update the script if you want to reuse it elsewhere.
